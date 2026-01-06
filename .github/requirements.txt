@@ -1,0 +1,11 @@
+# CI/CD Dependencies for AI Security Pipeline
+# These are separate from app dependencies
+
+# Claude Agent SDK for agentic workflow
+claude-code-sdk
+
+# HTTP client for AI Defense API calls
+httpx
+
+# MCP dependencies (ai-defense-mcp will also need its own requirements)
+mcp

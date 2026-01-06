@@ -5,58 +5,166 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      run_validation:
+        description: 'Run AI Defense Validation'
+        type: boolean
+        default: true
+      run_guardrails:
+        description: 'Run AI Runtime Guardrails'
+        type: boolean
+        default: true
+      dry_run:
+        description: 'Dry run mode (analyze only)'
+        type: boolean
+        default: false
+
+# ==============================================================================
+# AI AGENT INSTRUCTIONS
+# ==============================================================================
+# These environment variables define the agent prompts.
+# Edit these to change agent behavior.
+# ==============================================================================
+
+env:
+  # AI Defense MCP Repository
+  AI_DEFENSE_MCP_REPO: "https://github.com/nyasukun/ai-defense-mcp.git"
+
+  # Validation Agent Instructions
+  VALIDATION_AGENT_PROMPT: |
+    Analyze this codebase for LLM usage patterns and run AI Defense validation.
+
+    ## Your Task
+    1. Find all Python files (exclude .venv/, __pycache__/, .github/)
+    2. Detect LLM frameworks: LangChain, OpenAI SDK, Anthropic SDK
+    3. Extract system prompts from the code
+    4. Determine the model endpoint URL
+    5. Call mcp__ai-defense__start_ai_validation with:
+       - validation_scan_name: "{repo}-validation-{commit}"
+       - model_endpoint: detected endpoint
+       - headers: appropriate auth headers
+       - system_prompt: detected prompt
+    6. Poll mcp__ai-defense__get_ai_validation_status until complete
+    7. Report findings in structured format
+
+  # Guardrails Agent Instructions
+  GUARDRAILS_AGENT_PROMPT: |
+    Apply AI Defense runtime guardrails to this codebase and create a PR.
+
+    ## Your Task
+    1. Find LLM call sites: .invoke(), .ainvoke(), client.chat.completions.create(), client.messages.create()
+    2. Call mcp__ai-defense__setup_ai_defense_guardrails with:
+       - application_name: "{owner}/{repo}"
+       - description: "AI Defense protected application"
+    3. For each file with LLM calls (skip if guardrails exist):
+       - Add httpx import
+       - Add call_ai_defense_inspection() function with the runtime_api_key
+       - Verify syntax with: python -m py_compile {file}
+    4. Git operations:
+       - Create branch: ai-defense/{commit}
+       - Commit changes
+       - Push and create PR
+    5. Report PR URL and summary
 
 jobs:
-  ai-security-check:
+  # ============================================================================
+  # AI DEFENSE VALIDATION JOB
+  # ============================================================================
+  ai-validation:
+    name: AI Defense Validation
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_validation }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Clone AI Defense MCP
+      run: |
+        git clone --depth 1 ${{ env.AI_DEFENSE_MCP_REPO }} .github/ai-defense-mcp
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install CI/CD dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r .github/requirements.txt
+        pip install -r .github/ai-defense-mcp/requirements.txt
+
+    - name: Run AI Defense Validation Agent
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        AIC_MANAGEMENT_API_KEY: ${{ secrets.AIC_MANAGEMENT_API_KEY }}
+        AGENT_PROMPT: ${{ env.VALIDATION_AGENT_PROMPT }}
+      run: |
+        python .github/scripts/run_agent.py \
+          --output validation-report.json \
+          ${{ inputs.dry_run && '--dry-run' || '' }}
+
+    - name: Upload Validation Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: validation-report
+        path: validation-report.json
+        if-no-files-found: ignore
+
+  # ============================================================================
+  # AI RUNTIME GUARDRAILS JOB
+  # ============================================================================
+  ai-guardrails:
+    name: AI Runtime Guardrails
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_guardrails }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    
+
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Clone AI Defense MCP
+      run: |
+        git clone --depth 1 ${{ env.AI_DEFENSE_MCP_REPO }} .github/ai-defense-mcp
 
     - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: "3.10"
-        
-    - name: Install dependencies (Project & SDK)
+
+    - name: Install CI/CD dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install claude-agent-sdk mcp
-        
-    - name: Install Cisco AI Defense MCP
-      run: |
-        # Clone the repository
-        git clone https://github.com/nyasukun/ai-defense-mcp.git ai-defense-mcp
-        
-        # Install MCP dependencies
-        cd ai-defense-mcp
-        python -m pip install -r requirements.txt
-        cd ..
+        pip install -r .github/requirements.txt
+        pip install -r .github/ai-defense-mcp/requirements.txt
 
-    - name: Run AI Security Check
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Run AI Runtime Guardrails Agent
       env:
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        AIC_MANAGEMENT_API_KEY: ${{ secrets.AIC_MANAGEMENT_API_KEY }} # Needed for AI Defense MCP
+        AIC_MANAGEMENT_API_KEY: ${{ secrets.AIC_MANAGEMENT_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        AGENT_PROMPT: ${{ env.GUARDRAILS_AGENT_PROMPT }}
       run: |
-        # Run the security check script
-        python scripts/ai_security_check.py
+        python .github/scripts/run_agent.py \
+          --output guardrails-report.json \
+          ${{ inputs.dry_run && '--dry-run' || '' }}
 
-    - name: Create Pull Request
-      uses: peter-evans/create-pull-request@v5
+    - name: Upload Guardrails Report
+      uses: actions/upload-artifact@v4
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: "chore: Apply AI Security Guardrails"
-        title: "[AI Security] Apply Guardrails and Validation"
-        body: |
-          This Pull Request was automatically created by the AI Security Check workflow.
-          
-          It applies Cisco AI Defense guardrails to the codebase.
-        branch: ai-security-fixes-${{ github.sha }}
-        base: main
-        delete-branch: true
+        name: guardrails-report
+        path: guardrails-report.json
+        if-no-files-found: ignore
