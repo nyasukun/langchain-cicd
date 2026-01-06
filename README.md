@@ -58,6 +58,8 @@ The workflow provides instructions to the agent, which then calls AI Defense API
 | **Validation** | Analyzes LLM usage patterns and checks system prompts for vulnerabilities |
 | **Guardrails** | Inserts runtime inspection code at LLM call sites and creates a PR |
 
+> **Note:** The Guardrails agent may hardcode API keys in generated branches. Delete these branches after testing and rotate API keys if needed.
+
 ## File Structure
 
 ```
