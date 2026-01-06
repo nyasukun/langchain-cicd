@@ -40,7 +40,6 @@ SYSTEM_PROMPT = """You are an AI Security Agent. Your role is to analyze codebas
 
 ### Validation (via MCP)
 - Call `mcp__ai-defense__start_ai_validation` to start a validation scan
-- Call `mcp__ai-defense__get_ai_validation_status` to poll for results
 
 ### Guardrails (via MCP)
 - Call `mcp__ai-defense__setup_ai_defense_guardrails` to register app and get API key
@@ -79,7 +78,6 @@ TOOLS_FULL = [
     "Grep",
     "Bash",
     "mcp__ai-defense__start_ai_validation",
-    "mcp__ai-defense__get_ai_validation_status",
     "mcp__ai-defense__setup_ai_defense_guardrails",
 ]
 

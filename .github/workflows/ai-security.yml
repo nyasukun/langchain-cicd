@@ -33,20 +33,19 @@ env:
 
   # Validation Agent Instructions
   VALIDATION_AGENT_PROMPT: |
-    Analyze this codebase for LLM usage patterns and run AI Defense validation.
+    Analyze this codebase for LLM usage patterns and start AI Defense validation.
 
     ## Your Task
     1. Find all Python files (exclude .venv/, __pycache__/, .github/)
     2. Detect LLM frameworks: LangChain, OpenAI SDK, Anthropic SDK
     3. Extract system prompts from the code
-    4. Determine the model endpoint URL
+    4. Determine the model endpoint URL and auth headers
     5. Call mcp__ai-defense__start_ai_validation with:
        - validation_scan_name: "{repo}-validation-{commit}"
        - model_endpoint: detected endpoint
-       - headers: appropriate auth headers
+       - headers: appropriate auth headers (e.g., Authorization: Bearer <API_KEY>)
        - system_prompt: detected prompt
-    6. Poll mcp__ai-defense__get_ai_validation_status until complete
-    7. Report findings in structured format
+    6. Report the task_id and scan details
 
   # Guardrails Agent Instructions
   GUARDRAILS_AGENT_PROMPT: |
