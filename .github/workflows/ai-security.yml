@@ -39,13 +39,15 @@ env:
     1. Find all Python files (exclude .venv/, __pycache__/, .github/)
     2. Detect LLM frameworks: LangChain, OpenAI SDK, Anthropic SDK
     3. Extract system prompts from the code
-    4. Determine the model endpoint URL and auth headers
+    4. Get the OPENAI_API_KEY from environment: run `echo $OPENAI_API_KEY` via Bash
     5. Call mcp__ai-defense__start_ai_validation with:
-       - validation_scan_name: "{repo}-validation-{commit}"
-       - model_endpoint: detected endpoint
-       - headers: appropriate auth headers (e.g., Authorization: Bearer <API_KEY>)
-       - system_prompt: detected prompt
+       - validation_scan_name: "{repo}-validation"
+       - model_endpoint: https://api.openai.com/v1/chat/completions
+       - headers: {"Authorization": "Bearer <actual_key_from_step_4>", "Content-Type": "application/json"}
+       - system_prompt: detected prompt from code
     6. Report the task_id and scan details
+
+    IMPORTANT: Use the actual API key value from step 4, NOT a placeholder string.
 
   # Guardrails Agent Instructions
   GUARDRAILS_AGENT_PROMPT: |
