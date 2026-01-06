@@ -17,10 +17,7 @@ def get_mcp_config(base_dir: str = None) -> Dict[str, Any]:
 
         Available tools:
         - mcp__ai-defense__start_ai_validation
-        - mcp__ai-defense__get_ai_validation_status
         - mcp__ai-defense__setup_ai_defense_guardrails
-        - mcp__ai-defense__get_ai_defense_events
-        - mcp__ai-defense__get_ai_defense_event_details
     """
     if base_dir is None:
         base_dir = os.getcwd()
